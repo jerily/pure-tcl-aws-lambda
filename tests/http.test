@@ -1,0 +1,39 @@
+# 
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2026 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+# 
+
+package require tcltest 2
+namespace import ::tcltest::test
+lappend ::auto_path [file dirname [file dirname [file normalize [info script]]]]
+package require pure-tcl-aws-lambda 0.1.0
+set endpoint [lindex $argv 0]
+set argv {}
+set c [::aws::lambda::create [dict create region us-east-1 endpoint $endpoint aws_access_key_id test aws_secret_access_key test aws_session_token temporary-token]]
+test lambda-list {pagination returns complete configurations} -body {
+    set p [$c list_functions]
+    list [llength $p] [dict get [lindex $p 1] FunctionName] [dict get [lindex $p 0] VpcConfig VpcId]
+} -result {2 two {}}
+test lambda-get {ARN path encoding and configuration field mapping} -body {
+    set p [$c get_function arn:aws:lambda:us-east-1:123:function:雪]
+    list [dict get $p FunctionName] [dict get $p KmsKeyArn] [dict get $p CodeSize]
+} -result {雪 kms 42}
+test lambda-create {deployment bytes are base64 encoded without alteration} -body {
+    set f [file tempfile filename]
+    fconfigure $f -translation binary
+    puts -nonewline $f [binary format H* 504b00ff]
+    close $f
+    try {$c create_function fn $filename index.handler nodejs22.x arn 5} finally {file delete $filename}
+} -result {}
+test lambda-invoke {function errors remain payloads; each invocation type is sent once} -body {
+    set out {}
+    foreach type {RequestResponse Event DryRun} {lappend out [$c invoke_function fn {{"hello":"😀"}} $type]}
+    llength $out
+} -result 3
+test lambda-delete {delete sends no request body} -body {$c delete_function fn} -result {}
+
+$c destroy
+set failed $::tcltest::numTests(Failed)
+::tcltest::cleanupTests
+exit [expr {$failed > 0}]
