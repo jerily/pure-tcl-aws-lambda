@@ -66,5 +66,5 @@ proc ::aws::lambda::_invoke_function {client name payload {type RequestResponse}
     set response [call $client POST /2015-03-31/functions/[uri $name]/invocations [encoding convertto utf-8 $payload] [dict create X-Amz-Invocation-Type $type]]
     return [encoding convertfrom utf-8 [dict get $response body]]
 }
-package provide pure-tcl-aws-lambda 0.1.1
+package provide pure-tcl-aws-lambda 1.0.0
 package provide awslambda 1.0.19
